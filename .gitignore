@@ -1,0 +1,14 @@
+.devcontainer
+.vscode
+build/
+
+debug.log
+dependencies.lock
+Makefile
+sdkconfig*
+
+component.mk
+Kconfig.projbuild
+
+*0036524568*
+
