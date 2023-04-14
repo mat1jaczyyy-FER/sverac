@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "author": "Anonymous maker",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn1",
+      "top": 121.53,
+      "left": -168.27,
+      "attrs": { "color": "green" }
+    },
+    {
+      "type": "wokwi-dht22",
+      "id": "dht1",
+      "top": -17.78,
+      "left": 163.44,
+      "attrs": { "temperature": "40.8" }
+    },
+    {
+      "type": "wokwi-ntc-temperature-sensor",
+      "id": "ntc1",
+      "top": 7.19,
+      "left": -197.61,
+      "attrs": {}
+    }
+  ],
+  "connections": [
+    [ "esp:TX0", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX0", "$serialMonitor:TX", "", [] ],
+    [ "esp:GND.2", "btn1:2.r", "black", [ "h-57.5", "v6.53" ] ],
+    [ "esp:D13", "btn1:1.r", "green", [ "v0.23", "h-56.83", "v-11.2" ] ],
+    [ "ntc1:GND", "esp:GND.2", "black", [ "h37.68", "v116.55" ] ],
+    [ "ntc1:OUT", "esp:D34", "green", [ "h0" ] ],
+    [ "esp:GND.1", "dht1:GND", "black", [ "h0" ] ],
+    [ "dht1:VCC", "esp:3V3", "red", [ "v0" ] ],
+    [ "dht1:SDA", "esp:D15", "green", [ "v0" ] ],
+    [ "ntc1:VCC", "esp:VIN", "red", [ "h29", "v115.52" ] ]
+  ],
+  "dependencies": {}
+}
