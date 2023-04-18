@@ -11,4 +11,5 @@ component.mk
 Kconfig.projbuild
 
 *0036524568*
-
+mi-*
+zi-*
