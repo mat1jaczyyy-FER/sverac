@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "author": "Anonymous maker",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-ds1307", "id": "rtc1", "top": 27.43, "left": 132.25, "attrs": {} }
+  ],
+  "connections": [
+    [ "esp:TX0", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX0", "$serialMonitor:TX", "", [] ],
+    [ "esp:GND.1", "rtc1:GND", "black", [ "h10.42", "v-106.86" ] ],
+    [ "esp:3V3", "rtc1:5V", "red", [ "h15.19", "v-95.48" ] ],
+    [ "rtc1:SCL", "esp:D19", "green", [ "h0" ] ],
+    [ "esp:D18", "rtc1:SDA", "blue", [ "h22.07", "v-19.77" ] ]
+  ],
+  "dependencies": {}
+}
