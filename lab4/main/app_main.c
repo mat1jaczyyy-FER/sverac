@@ -1,3 +1,9 @@
+#define NAME "DominikMatijaca"
+#define JMBAG "0036524568"
+#define UUID 0x4568
+
+#define clamp(x, a, b) (x < a? a : (x > b? b : x))
+
 #include <stdio.h>
 
 #include "freertos/FreeRTOS.h"
@@ -14,32 +20,75 @@
 #include "services/gatt/ble_svc_gatt.h"
 #include "sdkconfig.h"
 
-const char *TAG = "BLE-Server";
-uint8_t ble_addr_type;
-void ble_app_advertise(void);
+static const char *TAG = "Lab4-BLE-Server";
 
-static int device_write(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg) {
-    printf("Data from the client: %.*s\n", ctxt->om->om_len, ctxt->om->om_data);
+#define MAX_LISTENERS 4
+static volatile uint16_t listeners[MAX_LISTENERS];
+static volatile int listeners_count = 0;
+
+static void listeners_push(uint16_t conn_handle) {
+    if (listeners_count >= MAX_LISTENERS)
+        return;
+
+    for (int i = 0; i < listeners_count; i++) {
+        if (listeners[i] == conn_handle) {
+            return;
+        }
+    }
+
+    listeners[listeners_count++] = conn_handle;
+}
+
+static void listeners_remove(uint16_t conn_handle) {
+    for (int i = 0; i < listeners_count; i++) {
+        if (listeners[i] == conn_handle) {
+            listeners[i] = listeners[--listeners_count];
+            break;
+        }
+    }
+}
+
+static uint16_t handle_notify = 0;
+
+static uint32_t counterBLE = 0;
+static const char* readBLE = JMBAG;
+static volatile uint8_t writeBLE = 1;
+
+static int device_nothing(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg) {
+    ESP_LOGI("GATT", "NOTHING");
     return 0;
 }
 
 static int device_read(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg) {
-    os_mbuf_append(ctxt->om, "Data from the server", strlen("Data from the server"));
+    os_mbuf_append(ctxt->om, readBLE, strlen(readBLE));
+    return 0;
+}
+
+static int device_write(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg) {
+    if (ctxt->om->om_len > 0)
+        writeBLE = clamp(ctxt->om->om_data[0], 1, 10);
+        
     return 0;
 }
 
 static const struct ble_gatt_svc_def gatt_svcs[] = {
     {
         .type = BLE_GATT_SVC_TYPE_PRIMARY,
-        .uuid = BLE_UUID16_DECLARE(0x180),
+        .uuid = BLE_UUID16_DECLARE(UUID),
         .characteristics = (struct ble_gatt_chr_def[]){
             {
-                .uuid = BLE_UUID16_DECLARE(0xFEF4),
+                .uuid = BLE_UUID16_DECLARE(UUID + 1),
+                .flags = BLE_GATT_CHR_F_NOTIFY,
+                .access_cb = device_nothing,
+                .val_handle = &handle_notify
+            },
+            {
+                .uuid = BLE_UUID16_DECLARE(UUID + 2),
                 .flags = BLE_GATT_CHR_F_READ,
                 .access_cb = device_read
             },
             {
-                .uuid = BLE_UUID16_DECLARE(0xDEAD),
+                .uuid = BLE_UUID16_DECLARE(UUID + 3),
                 .flags = BLE_GATT_CHR_F_WRITE,
                 .access_cb = device_write
             },
@@ -48,6 +97,9 @@ static const struct ble_gatt_svc_def gatt_svcs[] = {
     },
     {0}
 };
+
+uint8_t ble_addr_type;
+void ble_app_advertise(void);
 
 // BLE event handling
 static int ble_gap_event(struct ble_gap_event *event, void *arg) {
@@ -66,6 +118,18 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg) {
             ble_app_advertise();
             break;
         
+        case BLE_GAP_EVENT_SUBSCRIBE:
+            if (event->subscribe.attr_handle == handle_notify) {
+                if (event->subscribe.cur_notify) {
+                    ESP_LOGI("GAP", "BLE GAP EVENT SUBSCRIBE - %d", event->subscribe.conn_handle);
+                    listeners_push(event->subscribe.conn_handle);
+                } else {
+                    ESP_LOGI("GAP", "BLE GAP EVENT UNSUBSCRIBE - %d", event->subscribe.conn_handle);
+                    listeners_remove(event->subscribe.conn_handle);
+                }
+            }
+            break;
+
         default:
             break;
     }
@@ -104,7 +168,7 @@ void app_main() {
     nvs_flash_init();                           // 1 - Initialize NVS flash using
     esp_nimble_hci_and_controller_init();       // 2 - Initialize ESP controller
     nimble_port_init();                         // 3 - Initialize the host stack
-    ble_svc_gap_device_name_set("BLE-Server");  // 4 - Initialize NimBLE configuration - server name
+    ble_svc_gap_device_name_set(NAME);          // 4 - Initialize NimBLE configuration - server name
     ble_svc_gap_init();                         // 4 - Initialize NimBLE configuration - gap service
     ble_svc_gatt_init();                        // 4 - Initialize NimBLE configuration - gatt service
     ble_gatts_count_cfg(gatt_svcs);             // 4 - Initialize NimBLE configuration - config gatt services
@@ -112,7 +176,15 @@ void app_main() {
     ble_hs_cfg.sync_cb = ble_app_on_sync;       // 5 - Initialize application
     nimble_port_freertos_init(host_task);       // 6 - Run the thread
 
-    //while (1) {
-        
-    //}
+    while (1) {
+        ESP_LOGI(TAG, "Counter: %d", counterBLE);
+
+        for (int i = 0; i < listeners_count; i++) {
+            ble_gattc_notify_custom(listeners[i], handle_notify,
+                                    ble_hs_mbuf_from_flat(&counterBLE, sizeof(counterBLE)));
+        }
+
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        counterBLE += writeBLE;
+    }
 }
